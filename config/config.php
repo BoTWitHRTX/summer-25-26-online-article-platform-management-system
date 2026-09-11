@@ -1,79 +1,52 @@
 <?php
+// ================================================================
+// CONFIG - database connection, session setup and app settings
+// Everything in the project starts from here.
+// ================================================================
 
-/* ---------- 1. Database settings ---------- */
-
+/* ---------- 1. Database settings (change if your XAMPP differs) ---------- */
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'booknest_db');
-
+define('DB_NAME', 'inkwell_db');
 
 /* ---------- 2. App settings ---------- */
+define('APP_NAME', 'InkWell');
+define('CURRENCY', '$');
+define('DEFAULT_ORDER_LIMIT', 100.00);   // starting spend cap for new readers
+define('SESSION_TIMEOUT', 1800);         // auto logout after 30 minutes of no activity
 
-define('APP_NAME', 'BookNest');
-
-define('SESSION_TIMEOUT', 1800); // 30 minutes
-
-
-/* ---------- 3. Start session ---------- */
-
+/* ---------- 3. Start a hardened session ---------- */
+// SECURITY: the cookie cannot be read by JavaScript (httponly) and is not
+// sent on cross-site requests (samesite), which blocks most XSS/CSRF tricks.
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
         'httponly' => true,
-        'samesite' => 'Lax'
+        'samesite' => 'Lax',
     ]);
-
     session_start();
 }
 
-
-/* ---------- 4. Connect to MySQL ---------- */
-
-$conn = mysqli_connect(DB_HOST,DB_USER,DB_PASS,DB_NAME);
-
+/* ---------- 4. Connect to MySQL (procedural mysqli) ---------- */
+$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if (!$conn) {
-    die(
-        'Database connection failed. '. 'Did you import database.sql? '. 'Details: ' mysqli_connect_err());
+    die('Database connection failed. Did you import database.sql? Details: '
+        . mysqli_connect_error());
 }
-
-
-/* ---------- 5. Set database character set ---------- */
-
 mysqli_set_charset($conn, 'utf8mb4');
 
-
-/* ---------- 6. Create default admin ---------- */
-
-// The admin account is created automatically the first time the application runs.
-
-$check = mysqli_query(
-    $conn,
-    "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
-);
-
+/* ---------- 5. Create the default admin the first time the app runs ---------- */
+// Runs only when there is no admin yet. Login: admin / admin123
+// Admin has no signup/login page of its own - it always exists.
+$check = mysqli_query($conn, "SELECT id FROM users WHERE role = 'admin' LIMIT 1");
 if ($check && mysqli_num_rows($check) === 0) {
-
-    $adminPassword = password_hash(
-        'admin123',
-        PASSWORD_DEFAULT
-    );
-
-    $stmt = mysqli_prepare(
-        $conn,
-        "INSERT INTO users
-        (name, email, username, password, role)
-        VALUES (?, ?, ?, ?, 'admin')"
-    );
-
-    $adminName = 'Administrator';
-    $adminEmail = 'admin@gmail.test';
-    $adminUsername = 'admin';
-
-    mysqli_stmt_bind_param($stmt,'ssss', $adminName, $adminEmail, $adminUsername, $adminPassword);
-
+    $hash = password_hash('admin123', PASSWORD_DEFAULT);
+    $stmt = mysqli_prepare($conn,
+        "INSERT INTO users (name, email, contact, username, password, role)
+         VALUES ('Administrator', 'admin@inkwell.test', '0000000000', 'admin', ?, 'admin')");
+    mysqli_stmt_bind_param($stmt, 's', $hash);
     mysqli_stmt_execute($stmt);
-
     mysqli_stmt_close($stmt);
 }

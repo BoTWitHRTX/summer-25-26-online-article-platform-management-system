@@ -1,198 +1,148 @@
 <?php
+// ================================================================
+// HELPERS - small functions used everywhere (security, output, dates)
+// ================================================================
+
+/* ================= Output safety ================= */
 
 // SECURITY: always print user data through esc() to stop XSS.
-function esc($value)
-{
-    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+function esc($value) {
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
-
-// Redirect to another page
-function redirect($url)
-{
-    header("Location: $url");
+// Send the browser to another page and stop the script.
+function redirect($url) {
+    header('Location: ' . $url);
     exit;
 }
 
-
-// Check if request method is POST
-function is_post()
-{
+function is_post() {
     return $_SERVER['REQUEST_METHOD'] === 'POST';
 }
 
+/* ================= CSRF protection ================= */
+// A CSRF token is a secret value stored in the session and copied into every
+// form. A different website cannot read it, so it cannot forge a request.
 
-// Check whether user is logged in
-function is_logged_in()
-{
+function csrf_token() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// Prints the hidden input that every POST form must contain.
+function csrf_field() {
+    echo '<input type="hidden" name="csrf_token" value="' . csrf_token() . '">';
+}
+
+// Adds the token to a link (used by Delete / status-change links).
+function csrf_url($url) {
+    return $url . '&csrf_token=' . csrf_token();
+}
+
+// Stops the request if the token is missing or wrong.
+function csrf_check() {
+    $token = $_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '';
+    if (!is_string($token) || !hash_equals(csrf_token(), $token)) {
+        http_response_code(403);
+        die('Security check failed (invalid CSRF token). Please go back and try again.');
+    }
+}
+
+/* ================= Login / role guards ================= */
+
+function is_logged_in() {
     return isset($_SESSION['user']);
 }
 
-
-// Get currently logged-in user
-function current_user()
-{
+function current_user() {
     return $_SESSION['user'] ?? null;
 }
 
-
-// Get currently logged-in user's role
-function current_role()
-{
-    return $_SESSION['user']['role'] ?? null;
+function current_role() {
+    return $_SESSION['user']['role'] ?? '';
 }
 
-
-// Check session timeout
-function check_session_timeout()
-{
+// Logs the user out automatically after SESSION_TIMEOUT seconds of inactivity.
+function check_session_timeout() {
     if (!is_logged_in()) {
         return;
     }
-
-    $timeout = SESSION_TIMEOUT;
-
-    if (isset($_SESSION['last_active'])) {
-
-        if (time() - $_SESSION['last_active'] > $timeout) {
-
-            $_SESSION = [];
-
-            if (ini_get("session.use_cookies")) {
-                $params = session_get_cookie_params();
-
-                setcookie(
-                    session_name(),
-                    '',
-                    time() - 42000,
-                    $params["path"],
-                    $params["domain"] ?? '',
-                    $params["secure"],
-                    $params["httponly"]
-                );
-            }
-
-            session_destroy();
-
-            session_start();
-
-            set_flash('error', 'Your session has expired. Please login again.');
-
-            redirect('index.php?page=login');
-        }
+    if (isset($_SESSION['last_active']) && (time() - $_SESSION['last_active']) > SESSION_TIMEOUT) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        set_flash('error', 'Your session expired after 30 minutes. Please log in again.');
+        redirect('index.php?page=login');
     }
-
     $_SESSION['last_active'] = time();
 }
 
-
-// Require user to be logged in
-function require_login()
-{
+// Only lets the matching role through; everybody else is sent home.
+function require_role($role) {
     if (!is_logged_in()) {
-        set_flash('error', 'Please login first.');
+        set_flash('error', 'Please log in to continue.');
         redirect('index.php?page=login');
     }
-}
-
-
-// Require a specific role
-function require_role($role)
-{
-    require_login();
-
     if (current_role() !== $role) {
-
-        set_flash('error', 'You do not have permission to access this page.');
-
         redirect('index.php?page=' . current_role());
     }
 }
 
+/* ================= Flash messages ================= */
+// A flash message is shown once on the next page, then deleted.
 
-// Flash message
-function set_flash($type, $message)
-{
-    $_SESSION['flash'] = [
-        'type' => $type,
-        'message' => $message
-    ];
+function set_flash($type, $message) {
+    $_SESSION['flash'][] = ['type' => $type, 'message' => $message];
 }
 
-
-// Get and remove flash message
-function get_flash()
-{
-    if (!isset($_SESSION['flash'])) {
-        return null;
-    }
-
-    $flash = $_SESSION['flash'];
-
+function get_flash() {
+    $messages = $_SESSION['flash'] ?? [];
     unset($_SESSION['flash']);
-
-    return $flash;
+    return $messages;
 }
 
+/* ================= AJAX / JSON ================= */
 
-// Validate email
-function valid_email($email)
-{
+function json_out($data, $code = 200) {
+    http_response_code($code);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data);
+    exit;
+}
+
+/* ================= Small utilities ================= */
+
+function money($amount) {
+    return CURRENCY . number_format((float)$amount, 2);
+}
+
+function nice_date($date) {
+    return ($date && $date !== '0000-00-00 00:00:00') ? date('d M Y', strtotime($date)) : '-';
+}
+
+function role_label($role) {
+    $labels = ['admin' => 'Administrator', 'author' => 'Author', 'reader' => 'Reader'];
+    return $labels[$role] ?? ucfirst($role);
+}
+
+function stars($rating) {
+    $rating = max(0, min(5, (int)round($rating)));
+    return str_repeat('&#9733;', $rating) . str_repeat('&#9734;', 5 - $rating);
+}
+
+/* ================= Server-side validation helpers ================= */
+// PHP VALIDATION: never trust the browser. The JavaScript checks are only for
+// convenience; these functions are the real gate.
+
+function is_blank($value) {
+    return trim((string)$value) === '';
+}
+
+function valid_email($email) {
     return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
 }
 
-
-// Check blank value
-function is_blank($value)
-{
-    return trim($value) === '';
-}
-
-
-// Validate username
-function valid_username($username)
-{
-    return preg_match('/^[A-Za-z0-9_]{4,20}$/', $username);
-}
-
-
-// Generate CSRF token
-function csrf_token()
-{
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-
-    return $_SESSION['csrf_token'];
-}
-
-
-// Create CSRF hidden field
-function csrf_field()
-{
-    return '<input type="hidden" name="csrf_token" value="' .
-        esc(csrf_token()) .
-        '">';
-}
-
-
-// Check CSRF token
-function csrf_check()
-{
-    if (
-        !isset($_POST['csrf_token']) ||
-        !isset($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
-    ) {
-        die('Invalid request.');
-    }
-}
-
-
-// Return JSON response
-function json_out($data)
-{
-    header('Content-Type: application/json');
-    echo json_encode($data);
-    exit;
+function valid_contact($contact) {
+    return preg_match('/^[0-9+\-\s()]{6,20}$/', $contact) === 1;
 }
