@@ -77,41 +77,45 @@ function validateForm(form) {
       !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)
     ) {
       message = "Enter a valid email address.";
-    } else if (
-      value !== "" &&
-      input.dataset.phone &&
-      !/^[0-9+\-\s()]{6,20}$/.test(value)
-    ) {
-      message = "Enter a valid contact number.";
-    } else if (value !== "" && input.dataset.match) {
-      var other = form.querySelector('[name="' + input.dataset.match + '"]');
-      if (other && value !== other.value.trim()) {
-        message = "The two passwords do not match.";
-      }
-    } else if (value !== "" && input.type === "number") {
-      var num = parseFloat(value);
-      if (isNaN(num)) {
-        message = label + " must be a number.";
-      } else if (input.min !== "" && num < parseFloat(input.min)) {
-        message = label + " cannot be less than " + input.min + ".";
-      } else if (input.max !== "" && num > parseFloat(input.max)) {
-        message = label + " cannot be more than " + input.max + ".";
-      }
     }
-
-    if (message) {
-      showFieldError(input, message);
-      valid = false;
-      if (!firstBad) {
-        firstBad = input;
-      }
+  } else if (
+    value !== "" &&
+    input.dataset.phone &&
+    (
+      !/^[0-9+\-\s()]{10,20}$/.test(value) ||
+      value.replace(/\D/g, "").length < 10
+    )
+  ) {
+    message = "Contact number must contain at least 10 digits.";
+  } else if (value !== "" && input.dataset.match) {
+    var other = form.querySelector('[name="' + input.dataset.match + '"]');
+    if (other && value !== other.value.trim()) {
+      message = "The two passwords do not match.";
     }
-  });
-
-  if (firstBad) {
-    firstBad.focus();
+  } else if (value !== "" && input.type === "number") {
+    var num = parseFloat(value);
+    if (isNaN(num)) {
+      message = label + " must be a number.";
+    } else if (input.min !== "" && num < parseFloat(input.min)) {
+      message = label + " cannot be less than " + input.min + ".";
+    } else if (input.max !== "" && num > parseFloat(input.max)) {
+      message = label + " cannot be more than " + input.max + ".";
+    }
   }
-  return valid; // false stops the form from being submitted
+
+  if (message) {
+    showFieldError(input, message);
+    valid = false;
+    if (!firstBad) {
+      firstBad = input;
+    }
+  }
+});
+
+if (firstBad) {
+  firstBad.focus();
+}
+return valid; // false stops the form from being submitted
 }
 
 /* ---------------- 2. Escaping ---------------- */
