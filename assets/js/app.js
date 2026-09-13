@@ -63,6 +63,14 @@ function validateForm(form) {
       value.length < parseInt(input.dataset.min, 10)
     ) {
       message = label + " needs at least " + input.dataset.min + " characters.";
+    }
+    else if (
+      value !== "" &&
+      input.name === "username" &&
+      !/^[A-Za-z0-9_]{4,20}$/.test(value)
+    ) {
+      message =
+        "Username must be 4-20 characters and contain only letters, numbers or underscores.";
     } else if (
       value !== "" &&
       input.type === "email" &&
