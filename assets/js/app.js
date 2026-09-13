@@ -194,5 +194,14 @@ function ajaxTable(options) {
     })
     .catch(function (err) {
       console.error("Search failed:", err);
+
+      tbody.innerHTML =
+        '<tr><td colspan="' +
+        options.columns +
+        '" class="empty">Unable to load data. Please try again.</td></tr>';
+
+      if (counter) {
+        counter.textContent = "0 " + options.word;
+      }
     });
 }
