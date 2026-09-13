@@ -129,10 +129,10 @@ require __DIR__ . '/../partials/header.php';
     </div>
 </section>
 
-<!-- FEATURE 3: sold books + profit/loss -->
+<!-- FEATURE 3: sold articles + profit/loss -->
 <section class="panel">
     <div class="panel-head">
-        <h2>Sold books &amp; profit/loss</h2>
+        <h2>Sold articles &amp; profit/loss</h2>
         <input type="text" id="salesSearch" class="search-box" placeholder="Search sales&hellip;">
     </div>
     <div class="table-wrap">

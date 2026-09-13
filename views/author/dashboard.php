@@ -62,9 +62,9 @@ require __DIR__ . '/../partials/header.php';
     </form>
 </section>
 
-<!-- FEATURE 1: Compare books -->
+<!-- FEATURE 1: Compare articles -->
 <section class="panel">
-    <h2>Compare my books</h2>
+    <h2>Compare my articles</h2>
     <form method="POST" action="index.php?page=author&action=compare" class="form">
         <?php csrf_field(); ?>
         <p class="muted">Pick two or more of your own articles to compare price, sales, likes and rating.</p>
